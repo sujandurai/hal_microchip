@@ -3,6 +3,7 @@ name: PIC32CM LS00 CI
 on:
   push:
     branches:
+      - patch-1
       - add-pic32cm5164ls00048
 
   pull_request:
@@ -15,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout HAL
+      - name: Checkout HAL PR
         uses: actions/checkout@v4
 
       - name: Setup Python
@@ -30,11 +31,16 @@ jobs:
 
       - name: Initialize Zephyr
         run: |
-          west init -m https://github.com/zephyrproject-rtos/zephyr.git
+          west init -m https://github.com/sujandurai/zephyr-pic32cm5164ls00048.git --mr pic32ls00-only
 
       - name: Update Zephyr
         run: |
           west update
+
+      - name: Replace HAL with PR version
+        run: |
+          rm -rf modules/hal/microchip
+          cp -a "$GITHUB_WORKSPACE" modules/hal/microchip
 
       - name: Export Zephyr
         run: |
@@ -44,11 +50,11 @@ jobs:
         run: |
           pip install -r zephyr/scripts/requirements.txt
 
-      - name: Show boards
+      - name: Check PIC32CM board
         run: |
-          west boards | grep -i pic32 || true
+          west boards | grep -i pic32cm
 
-      - name: Build PIC32CM LS00
+      - name: Build PIC32CM LS00 blinky
         run: |
           west build -p always \
             -b pic32cm_ls00_cnano \
