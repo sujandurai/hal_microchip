@@ -1,0 +1,55 @@
+name: PIC32CM LS00 CI
+
+on:
+  push:
+    branches:
+      - add-pic32cm5164ls00048
+
+  pull_request:
+
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build PIC32CM LS00
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout HAL
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install west
+        run: |
+          python -m pip install --upgrade pip
+          pip install west
+
+      - name: Initialize Zephyr
+        run: |
+          west init -m https://github.com/zephyrproject-rtos/zephyr.git
+
+      - name: Update Zephyr
+        run: |
+          west update
+
+      - name: Export Zephyr
+        run: |
+          west zephyr-export
+
+      - name: Install Zephyr requirements
+        run: |
+          pip install -r zephyr/scripts/requirements.txt
+
+      - name: Show boards
+        run: |
+          west boards | grep -i pic32 || true
+
+      - name: Build PIC32CM LS00
+        run: |
+          west build -p always \
+            -b pic32cm_ls00_cnano \
+            zephyr/samples/basic/blinky
