@@ -5,10 +5,15 @@ on:
     branches:
       - patch-1
       - add-pic32cm5164ls00048
-
   pull_request:
-
   workflow_dispatch:
+
+env:
+  # Pin these so CI is reproducible instead of drifting with upstream.
+  ZEPHYR_FORK_URL: https://github.com/sujandurai/zephyr-pic32cm5164ls00048.git
+  ZEPHYR_FORK_BRANCH: pic32ls00-only
+  ZEPHYR_SDK_VERSION: "0.17.0"
+  BOARD: pic32cm_ls00_cnano
 
 jobs:
   build:
@@ -21,6 +26,9 @@ jobs:
       # --------------------------------------------------
       - name: Checkout HAL
         uses: actions/checkout@v4
+        with:
+          path: hal_microchip_src
+          fetch-depth: 0
 
       # --------------------------------------------------
       # 2. Setup Python
@@ -29,6 +37,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: "pip"
 
       # --------------------------------------------------
       # 3. Install west
@@ -39,76 +48,115 @@ jobs:
           pip install west
 
       # --------------------------------------------------
-      # 4. Initialize a normal Zephyr workspace
+      # 4. Initialize workspace directly from the PIC32CM LS00
+      #    Zephyr fork, so the manifest (west.yml) that gets
+      #    resolved already matches the fork -- avoids the
+      #    "west update against upstream, then swap zephyr/"
+      #    mismatch.
       # --------------------------------------------------
-      - name: Initialize Zephyr workspace
+      - name: Initialize Zephyr workspace from fork
         run: |
-          west init -m https://github.com/zephyrproject-rtos/zephyr.git
+          west init -m ${{ env.ZEPHYR_FORK_URL }} --mr ${{ env.ZEPHYR_FORK_BRANCH }} workspace
 
       # --------------------------------------------------
-      # 5. Download Zephyr modules
+      # 5. Download Zephyr modules per the fork's manifest
       # --------------------------------------------------
       - name: Update Zephyr modules
+        working-directory: workspace
         run: |
-          west update
+          west update --narrow -o=--depth=1
 
       # --------------------------------------------------
-      # 6. Replace upstream Zephyr with PIC32CM LS00 fork
-      # --------------------------------------------------
-      - name: Checkout PIC32CM LS00 Zephyr
-        run: |
-          rm -rf zephyr
-
-          git clone \
-            --branch pic32ls00-only \
-            https://github.com/sujandurai/zephyr-pic32cm5164ls00048.git \
-            zephyr
-
-      # --------------------------------------------------
-      # 7. Install Zephyr Python requirements
+      # 6. Install Zephyr Python requirements
       # --------------------------------------------------
       - name: Install Zephyr requirements
+        working-directory: workspace
         run: |
           pip install -r zephyr/scripts/requirements.txt
 
       # --------------------------------------------------
-      # 8. Export Zephyr environment
+      # 7. Export Zephyr CMake package + install SDK/toolchain
+      #    (this was missing before -- west build needs
+      #    arm-zephyr-eabi-gcc for a Cortex-M0+ target)
       # --------------------------------------------------
       - name: Export Zephyr
+        working-directory: workspace
         run: |
           west zephyr-export
 
+      - name: Install Zephyr SDK toolchain
+        working-directory: workspace/zephyr
+        run: |
+          west sdk install --toolchains arm-zephyr-eabi --version ${{ env.ZEPHYR_SDK_VERSION }}
+
       # --------------------------------------------------
-      # 9. Replace Microchip HAL with current PR code
+      # 8. Replace Microchip HAL module with current PR code
       # --------------------------------------------------
       - name: Use HAL PR code
         run: |
-          rm -rf modules/hal/microchip
-          mkdir -p modules/hal/microchip
-
-          git archive HEAD | tar -x -C modules/hal/microchip
+          rm -rf workspace/modules/hal/microchip
+          mkdir -p workspace/modules/hal/microchip
+          git -C hal_microchip_src archive HEAD | tar -x -C workspace/modules/hal/microchip
 
       # --------------------------------------------------
-      # 10. Check that PIC32CM LS00 board is detected
+      # 9. Sanity checks: board + SoC show up after the HAL swap
       # --------------------------------------------------
-      - name: Check PIC32CM LS00 board
+      - name: Check PIC32CM LS00 board is registered
+        working-directory: workspace
         run: |
           west boards | grep -i pic32cm
 
-      # --------------------------------------------------
-      # 11. Show important versions
-      # --------------------------------------------------
       - name: Show versions
+        working-directory: workspace
         run: |
           west --version
           python --version
           git --version
+          arm-zephyr-eabi-gcc --version || true
 
       # --------------------------------------------------
-      # 12. Build PIC32CM LS00 blinky
+      # 10. Build a small spread of samples, the way other
+      #     Microchip SAM/PIC32 boards are smoke-tested --
+      #     not just blinky, so GPIO/console/driver init
+      #     paths in the new HAL get exercised too.
       # --------------------------------------------------
-      - name: Build PIC32CM LS00 blinky
+      - name: Build blinky
+        working-directory: workspace
         run: |
-          west build -p always \
-            -b pic32cm_ls00_cnano \
-            zephyr/samples/basic/blinky
+          west build -p always -b ${{ env.BOARD }} zephyr/samples/basic/blinky -d build/blinky
+
+      - name: Build button
+        working-directory: workspace
+        run: |
+          west build -p always -b ${{ env.BOARD }} zephyr/samples/basic/button -d build/button
+
+      - name: Build hello_world
+        working-directory: workspace
+        run: |
+          west build -p always -b ${{ env.BOARD }} zephyr/samples/hello_world -d build/hello_world
+
+      # --------------------------------------------------
+      # 11. Optional: run twister for a broader automated
+      #     sweep instead of hand-picking samples. Uncomment
+      #     once the board has enough driver coverage to be
+      #     worth it; keeps this job fast until then.
+      # --------------------------------------------------
+      # - name: Run twister for this board
+      #   working-directory: workspace
+      #   run: |
+      #     python zephyr/scripts/twister -p ${{ env.BOARD }} \
+      #       -T zephyr/samples/basic \
+      #       --inline-logs -v
+
+      # --------------------------------------------------
+      # 12. Upload build artifacts for inspection on failure
+      # --------------------------------------------------
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pic32cm-ls00-build-logs
+          path: |
+            workspace/build/*/build.log
+            workspace/build/*/CMakeCache.txt
+          if-no-files-found: ignore
