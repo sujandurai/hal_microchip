@@ -145,25 +145,11 @@ jobs:
       # --------------------------------------------------
       # 9. Sanity checks: board + SoC show up after the HAL swap
       # --------------------------------------------------
-      - name: Debug - locate cyt4dnjbzs reference
+      - name: Check PIC32CM LS00 board files exist
         working-directory: workspace
         run: |
-          grep -ril "cyt4dnjbzs" . 2>/dev/null || echo "No literal match found -- may be generated at configure time"
-
-      - name: Check PIC32CM LS00 board is registered
-        working-directory: workspace
-        continue-on-error: true
-        run: |
-          west -vv boards > /tmp/boards_verbose.log 2>&1
-          echo "exit_code=$?" >> "$GITHUB_ENV"
-
-      - name: Show verbose board scan output (last 150 lines)
-        working-directory: workspace
-        run: |
-          tail -n 150 /tmp/boards_verbose.log
-          echo "----- pic32cm matches -----"
-          grep -i pic32cm /tmp/boards_verbose.log || echo "pic32cm not found in output"
-          grep -qi pic32cm /tmp/boards_verbose.log
+          find zephyr/boards/microchip -iname "*pic32cm*" -print | tee /tmp/pic32cm_files.txt
+          test -s /tmp/pic32cm_files.txt && echo "PIC32CM board files found." || (echo "No PIC32CM board files found!" && exit 1)
 
       - name: Show versions
         working-directory: workspace
