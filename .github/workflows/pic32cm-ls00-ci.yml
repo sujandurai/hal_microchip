@@ -87,13 +87,9 @@ jobs:
           rm -rf zephyr
           git clone --branch ${{ env.ZEPHYR_FORK_BRANCH }} ${{ env.ZEPHYR_FORK_URL }} zephyr
 
-      - name: Fill in any infra files missing from the fork
+      - name: Verify core infra files exist in fork
         working-directory: workspace
         run: |
-          # --ignore-existing: only copies files that don't already
-          # exist in zephyr/ -- never overwrites anything the fork
-          # itself provides.
-          rsync -a --ignore-existing /tmp/zephyr-upstream-backup/ zephyr/
           test -f zephyr/scripts/requirements.txt && echo "requirements.txt OK"
           test -f zephyr/scripts/west-commands.yml && echo "west-commands.yml OK"
 
