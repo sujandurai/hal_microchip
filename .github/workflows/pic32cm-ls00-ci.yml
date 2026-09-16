@@ -12,7 +12,6 @@ env:
   # Pin these so CI is reproducible instead of drifting with upstream.
   ZEPHYR_FORK_URL: https://github.com/sujandurai/zephyr-pic32cm5164ls00048.git
   ZEPHYR_FORK_BRANCH: pic32ls00-only
-  ZEPHYR_SDK_VERSION: "0.17.0"
   BOARD: pic32cm_ls00_cnano
 
 jobs:
@@ -119,7 +118,7 @@ jobs:
       - name: Install Zephyr SDK toolchain
         working-directory: workspace/zephyr
         run: |
-          west sdk install --toolchains arm-zephyr-eabi --version ${{ env.ZEPHYR_SDK_VERSION }}
+          west sdk install --toolchains arm-zephyr-eabi
 
       # --------------------------------------------------
       # 8. Replace Microchip HAL module with current PR code
