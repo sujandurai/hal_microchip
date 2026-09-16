@@ -26,6 +26,8 @@ jobs:
       - name: Checkout HAL
         uses: actions/checkout@v4
         with:
+          repository: sujandurai/hal_microchip
+          ref: patch-1
           path: hal_microchip_src
           fetch-depth: 0
           submodules: recursive
