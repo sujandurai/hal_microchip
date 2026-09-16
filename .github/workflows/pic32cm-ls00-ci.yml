@@ -47,23 +47,34 @@ jobs:
           pip install west
 
       # --------------------------------------------------
-      # 4. Initialize workspace directly from the PIC32CM LS00
-      #    Zephyr fork, so the manifest (west.yml) that gets
-      #    resolved already matches the fork -- avoids the
-      #    "west update against upstream, then swap zephyr/"
-      #    mismatch.
+      # 4. Initialize a normal Zephyr workspace from upstream.
+      #    (Your fork repo doesn't have a west.yml at its
+      #    root, so it can't be used directly as a manifest
+      #    repo -- it has to go in as the "zephyr" module
+      #    instead, same as your original approach.)
       # --------------------------------------------------
-      - name: Initialize Zephyr workspace from fork
+      - name: Initialize Zephyr workspace
         run: |
-          west init -m ${{ env.ZEPHYR_FORK_URL }} --mr ${{ env.ZEPHYR_FORK_BRANCH }} workspace
+          west init -m https://github.com/zephyrproject-rtos/zephyr.git workspace
 
       # --------------------------------------------------
-      # 5. Download Zephyr modules per the fork's manifest
+      # 5. Download Zephyr modules
       # --------------------------------------------------
       - name: Update Zephyr modules
         working-directory: workspace
         run: |
           west update --narrow -o=--depth=1
+
+      # --------------------------------------------------
+      # 5b. Swap in the PIC32CM LS00 Zephyr fork now, before
+      #     installing requirements/exporting, so everything
+      #     downstream uses the fork's code.
+      # --------------------------------------------------
+      - name: Checkout PIC32CM LS00 Zephyr
+        working-directory: workspace
+        run: |
+          rm -rf zephyr
+          git clone --branch ${{ env.ZEPHYR_FORK_BRANCH }} ${{ env.ZEPHYR_FORK_URL }} zephyr
 
       # --------------------------------------------------
       # 6. Install Zephyr Python requirements
