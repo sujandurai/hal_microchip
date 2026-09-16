@@ -141,6 +141,15 @@ jobs:
 
       - name: Debug - verify CMSIS header made it through copy
         run: |
+          echo "----- .gitmodules content -----"
+          cat hal_microchip_src/.gitmodules 2>/dev/null || echo "No .gitmodules file"
+          echo "----- git submodule status -----"
+          git -C hal_microchip_src submodule status || echo "submodule status failed"
+          echo "----- contents of packs/ directory (if it exists) -----"
+          ls -la hal_microchip_src/packs/ 2>/dev/null || echo "packs/ does not exist in hal_microchip_src"
+          echo "----- searching hal_microchip_src for the header file -----"
+          find hal_microchip_src -iname "pic32cm5164ls00048.h" 2>/dev/null || echo "Not found anywhere in hal_microchip_src"
+          echo "----- final check: workspace copy -----"
           ls -la workspace/modules/hal/microchip/packs/pic32c/pic32cm_ls/pic32cm_ls00/include/ || echo "Directory does not exist!"
 
       # --------------------------------------------------
