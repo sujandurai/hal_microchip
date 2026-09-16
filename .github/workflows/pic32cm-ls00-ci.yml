@@ -28,6 +28,7 @@ jobs:
         with:
           path: hal_microchip_src
           fetch-depth: 0
+          submodules: recursive
 
       # --------------------------------------------------
       # 2. Setup Python
@@ -136,16 +137,11 @@ jobs:
         run: |
           rm -rf workspace/modules/hal/microchip
           mkdir -p workspace/modules/hal/microchip
-          git -C hal_microchip_src archive HEAD | tar -x -C workspace/modules/hal/microchip
+          rsync -a --exclude='.git' hal_microchip_src/ workspace/modules/hal/microchip/
 
-      - name: Debug - verify CMSIS header made it through archive
+      - name: Debug - verify CMSIS header made it through copy
         run: |
-          echo "----- contents of packs/pic32c/pic32cm_ls/pic32cm_ls00/include -----"
           ls -la workspace/modules/hal/microchip/packs/pic32c/pic32cm_ls/pic32cm_ls00/include/ || echo "Directory does not exist!"
-          echo "----- checking .gitattributes in hal_microchip_src -----"
-          cat hal_microchip_src/.gitattributes 2>/dev/null || echo "No .gitattributes file"
-          echo "----- git ls-tree check (what git thinks is tracked) -----"
-          git -C hal_microchip_src ls-tree -r HEAD --name-only | grep -i "pic32cm5164ls00048.h" || echo "Not found in git ls-tree!"
 
       # --------------------------------------------------
       # 9. Sanity checks: board + SoC show up after the HAL swap
