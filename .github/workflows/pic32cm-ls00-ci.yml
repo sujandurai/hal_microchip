@@ -98,6 +98,19 @@ jobs:
           test -f zephyr/scripts/west-commands.yml && echo "west-commands.yml OK"
 
       # --------------------------------------------------
+      # 5c. Re-sync modules against the FORK's own west.yml.
+      #     The first "west update" ran against upstream's
+      #     manifest, before the fork was swapped in -- if the
+      #     fork's manifest references different/extra modules
+      #     (as pushing a full personal Zephyr tree can do),
+      #     they won't have been fetched yet without this.
+      # --------------------------------------------------
+      - name: Re-sync modules with fork manifest
+        working-directory: workspace
+        run: |
+          west update --narrow -o=--depth=1
+
+      # --------------------------------------------------
       # 6. Install Zephyr Python requirements
       # --------------------------------------------------
       - name: Install Zephyr requirements
@@ -132,6 +145,11 @@ jobs:
       # --------------------------------------------------
       # 9. Sanity checks: board + SoC show up after the HAL swap
       # --------------------------------------------------
+      - name: Debug - locate cyt4dnjbzs reference
+        working-directory: workspace
+        run: |
+          grep -ril "cyt4dnjbzs" . 2>/dev/null || echo "No literal match found -- may be generated at configure time"
+
       - name: Check PIC32CM LS00 board is registered
         working-directory: workspace
         run: |
