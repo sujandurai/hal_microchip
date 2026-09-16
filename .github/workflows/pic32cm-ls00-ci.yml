@@ -70,15 +70,17 @@ jobs:
       #     installing requirements/exporting, so everything
       #     downstream uses the fork's code.
       #
-      #     The fork branch is missing scripts/requirements.txt,
-      #     so back up the upstream copy first and fall back to
-      #     it if the fork doesn't ship its own.
+      #     The fork branch is missing infrastructure files
+      #     (scripts/requirements.txt, scripts/west-commands.yml,
+      #     etc.) that "west zephyr-export" and friends need, so
+      #     back up the full upstream tree first and, after the
+      #     swap, fill in anything the fork doesn't provide --
+      #     without touching any file the fork *does* provide.
       # --------------------------------------------------
-      - name: Back up upstream requirements.txt
+      - name: Back up upstream Zephyr tree
         working-directory: workspace
         run: |
-          mkdir -p /tmp/zephyr-req-backup
-          cp -r zephyr/scripts/requirements*.txt /tmp/zephyr-req-backup/ 2>/dev/null || true
+          cp -r zephyr /tmp/zephyr-upstream-backup
 
       - name: Checkout PIC32CM LS00 Zephyr
         working-directory: workspace
@@ -86,15 +88,15 @@ jobs:
           rm -rf zephyr
           git clone --branch ${{ env.ZEPHYR_FORK_BRANCH }} ${{ env.ZEPHYR_FORK_URL }} zephyr
 
-      - name: Restore requirements.txt if fork is missing it
+      - name: Fill in any infra files missing from the fork
         working-directory: workspace
         run: |
-          if [ ! -f zephyr/scripts/requirements.txt ]; then
-            echo "Fork branch has no scripts/requirements.txt -- using upstream copy instead."
-            mkdir -p zephyr/scripts
-            cp /tmp/zephyr-req-backup/*.txt zephyr/scripts/ 2>/dev/null || true
-          fi
-          ls -la zephyr/scripts/requirements*.txt
+          # --ignore-existing: only copies files that don't already
+          # exist in zephyr/ -- never overwrites anything the fork
+          # itself provides.
+          rsync -a --ignore-existing /tmp/zephyr-upstream-backup/ zephyr/
+          test -f zephyr/scripts/requirements.txt && echo "requirements.txt OK"
+          test -f zephyr/scripts/west-commands.yml && echo "west-commands.yml OK"
 
       # --------------------------------------------------
       # 6. Install Zephyr Python requirements
