@@ -152,8 +152,18 @@ jobs:
 
       - name: Check PIC32CM LS00 board is registered
         working-directory: workspace
+        continue-on-error: true
         run: |
-          west boards | grep -i pic32cm
+          west -vv boards > /tmp/boards_verbose.log 2>&1
+          echo "exit_code=$?" >> "$GITHUB_ENV"
+
+      - name: Show verbose board scan output (last 150 lines)
+        working-directory: workspace
+        run: |
+          tail -n 150 /tmp/boards_verbose.log
+          echo "----- pic32cm matches -----"
+          grep -i pic32cm /tmp/boards_verbose.log || echo "pic32cm not found in output"
+          grep -qi pic32cm /tmp/boards_verbose.log
 
       - name: Show versions
         working-directory: workspace
