@@ -69,12 +69,32 @@ jobs:
       # 5b. Swap in the PIC32CM LS00 Zephyr fork now, before
       #     installing requirements/exporting, so everything
       #     downstream uses the fork's code.
+      #
+      #     The fork branch is missing scripts/requirements.txt,
+      #     so back up the upstream copy first and fall back to
+      #     it if the fork doesn't ship its own.
       # --------------------------------------------------
+      - name: Back up upstream requirements.txt
+        working-directory: workspace
+        run: |
+          mkdir -p /tmp/zephyr-req-backup
+          cp -r zephyr/scripts/requirements*.txt /tmp/zephyr-req-backup/ 2>/dev/null || true
+
       - name: Checkout PIC32CM LS00 Zephyr
         working-directory: workspace
         run: |
           rm -rf zephyr
           git clone --branch ${{ env.ZEPHYR_FORK_BRANCH }} ${{ env.ZEPHYR_FORK_URL }} zephyr
+
+      - name: Restore requirements.txt if fork is missing it
+        working-directory: workspace
+        run: |
+          if [ ! -f zephyr/scripts/requirements.txt ]; then
+            echo "Fork branch has no scripts/requirements.txt -- using upstream copy instead."
+            mkdir -p zephyr/scripts
+            cp /tmp/zephyr-req-backup/*.txt zephyr/scripts/ 2>/dev/null || true
+          fi
+          ls -la zephyr/scripts/requirements*.txt
 
       # --------------------------------------------------
       # 6. Install Zephyr Python requirements
